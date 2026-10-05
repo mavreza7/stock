@@ -1,20 +1,250 @@
-'use client'
-import {useEffect,useState} from 'react'
-import {supabase} from '../lib/supabase'
-const money=n=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n||0)
-export default function Home(){
- const [tab,setTab]=useState('dashboard'),[products,setProducts]=useState([]),[materials,setMaterials]=useState([]),[sales,setSales]=useState([]),[customer,setCustomer]=useState(''),[cart,setCart]=useState([])
- const [pid,setPid]=useState(''),[qty,setQty]=useState(1),[msg,setMsg]=useState('')
- async function load(){let p=await supabase.from('products').select('*').eq('active',true).order('category').order('name');let m=await supabase.from('materials').select('*').eq('active',true).order('name');let s=await supabase.from('sales').select('*').order('created_at',{ascending:false}).limit(50);setProducts(p.data||[]);setMaterials(m.data||[]);setSales(s.data||[])}
- useEffect(()=>{load()},[])
- function add(){let p=products.find(x=>x.id===pid);if(!p)return;setCart([...cart,{...p,qty:+qty,total:+qty*p.selling_price}])}
- async function checkout(){if(!customer||!cart.length)return setMsg('Isi customer dan produk');let subtotal=cart.reduce((a,x)=>a+x.total,0);let no='INV-'+Date.now();let {data,error}=await supabase.from('sales').insert({invoice_no:no,customer_id:null,status:'PAID',subtotal,total:subtotal,paid:subtotal,change_amount:0,payment_method:'CASH'}).select().single();if(error)return setMsg(error.message);await supabase.from('sale_items').insert(cart.map(x=>({sale_id:data.id,product_id:x.id,product_name:x.name,unit:x.unit,qty:x.qty,unit_price:x.selling_price,total:x.total})));setMsg('Transaksi tersimpan: '+no);setCart([]);setCustomer('');await load()}
- const nav=['dashboard','produk','stok','kasir','laporan']
- return <><header><b>BannerPrint Pro</b><span>Database Online • Percetakan</span></header><nav>{nav.map(x=><button className={tab===x?'on':''} onClick={()=>setTab(x)}>{x}</button>)}</nav><main>
- {tab==='dashboard'&&<><h2>Dashboard</h2><div className="cards"><div>Produk<strong>{products.length}</strong></div><div>Bahan<strong>{materials.length}</strong></div><div>Stok roll<strong>Database aktif</strong></div><div>Penjualan<strong>{money(sales.reduce((a,x)=>a+(x.total||0),0))}</strong></div></div></>}
- {tab==='produk'&&<><h2>Master Produk & Harga</h2><table><thead><tr><th>Produk</th><th>Kategori</th><th>Satuan</th><th>Harga</th></tr></thead><tbody>{products.map(x=><tr><td>{x.name}</td><td>{x.category}</td><td>{x.unit}</td><td>{money(x.selling_price)}</td></tr>)}</tbody></table></>}
- {tab==='stok'&&<><h2>Stok Bahan</h2><table><thead><tr><th>Bahan</th><th>Lebar</th><th>Modal/m</th><th>Minimum</th></tr></thead><tbody>{materials.map(x=><tr><td>{x.name}</td><td>{x.width_cm} cm</td><td>{money(x.cost_per_meter)}</td><td>{x.minimum_meter} m</td></tr>)}</tbody></table><p>Stok fisik roll dicatat di tabel material_rolls melalui modul Stok Masuk berikutnya.</p></>}
- {tab==='kasir'&&<><h2>Kasir</h2><input placeholder="Customer" value={customer} onChange={e=>setCustomer(e.target.value)}/><select value={pid} onChange={e=>setPid(e.target.value)}><option value="">Pilih produk</option>{products.map(x=><option value={x.id}>{x.name} — {money(x.selling_price)}</option>)}</select><input type="number" min="1" value={qty} onChange={e=>setQty(e.target.value)}/><button onClick={add}>Tambah</button><h3>Keranjang</h3>{cart.map(x=><p>{x.name} × {x.qty} = {money(x.total)}</p>)}<h2>{money(cart.reduce((a,x)=>a+x.total,0))}</h2><button onClick={checkout}>Bayar & Simpan Invoice</button><p>{msg}</p></>}
- {tab==='laporan'&&<><h2>Penjualan</h2><table><thead><tr><th>Invoice</th><th>Total</th><th>Status</th><th>Tanggal</th></tr></thead><tbody>{sales.map(x=><tr><td>{x.invoice_no}</td><td>{money(x.total)}</td><td>{x.status}</td><td>{new Date(x.created_at).toLocaleString('id-ID')}</td></tr>)}</tbody></table></>}
- </main><style jsx>{`body{background:#f4f6fa;color:#172033}header{padding:16px 22px;background:#111827;color:#fff;display:flex;justify-content:space-between}nav{padding:10px;background:#fff;border-bottom:1px solid #ddd}nav button{margin:4px;padding:9px 12px;border:0;border-radius:7px}.on{background:#2563eb;color:#fff}main{max-width:1200px;margin:auto;padding:22px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.cards div,table{background:#fff;padding:15px;border:1px solid #ddd;border-radius:8px}strong{display:block;font-size:22px;margin-top:8px}input,select{padding:10px;margin:5px;border:1px solid #ccc;border-radius:6px}table{width:100%;border-collapse:collapse;padding:0}td,th{padding:10px;border-bottom:1px solid #eee;text-align:left}@media(max-width:700px){.cards{grid-template-columns:1fr 1fr}}`}</style></>
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
+
+export default function Home() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  async function loadProducts() {
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      alert("Gagal mengambil data produk: " + error.message);
+    } else {
+      setProducts(data || []);
+    }
+
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const totalProduk = products.length;
+
+  const totalStok = products.reduce(
+    (total, product) => total + Number(product.stock || 0),
+    0
+  );
+
+  const stokMenipis = products.filter(
+    (product) =>
+      Number(product.stock || 0) <= Number(product.minimum_stock || 0)
+  ).length;
+
+  return (
+    <main
+      style={{
+        minHeight: "100vh",
+        background: "#f5f7fb",
+        padding: "30px",
+        fontFamily: "Arial, sans-serif",
+      }}
+    >
+      <div style={{ maxWidth: "1200px", margin: "auto" }}>
+        {/* HEADER */}
+        <div style={{ marginBottom: "30px" }}>
+          <h1 style={{ margin: 0, fontSize: "32px" }}>
+            📊 Sistem Stok Percetakan
+          </h1>
+
+          <p style={{ color: "#666", marginTop: "8px" }}>
+            Dashboard persediaan banner & percetakan
+          </p>
+        </div>
+
+        {/* SUMMARY */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: "20px",
+            marginBottom: "30px",
+          }}
+        >
+          <div style={cardStyle}>
+            <div style={iconStyle}>📦</div>
+            <div>
+              <div style={labelStyle}>Total Produk</div>
+              <div style={numberStyle}>{totalProduk}</div>
+            </div>
+          </div>
+
+          <div style={cardStyle}>
+            <div style={iconStyle}>📊</div>
+            <div>
+              <div style={labelStyle}>Total Stok</div>
+              <div style={numberStyle}>{totalStok}</div>
+            </div>
+          </div>
+
+          <div style={cardStyle}>
+            <div style={iconStyle}>⚠️</div>
+            <div>
+              <div style={labelStyle}>Stok Menipis</div>
+              <div style={numberStyle}>{stokMenipis}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* PRODUK */}
+        <div
+          style={{
+            background: "white",
+            borderRadius: "16px",
+            padding: "24px",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "20px",
+            }}
+          >
+            <div>
+              <h2 style={{ margin: 0 }}>📦 Master Produk</h2>
+              <p style={{ color: "#777" }}>
+                Data produk yang tersimpan di database
+              </p>
+            </div>
+
+            <button
+              onClick={loadProducts}
+              style={{
+                border: "none",
+                background: "#111827",
+                color: "white",
+                padding: "10px 16px",
+                borderRadius: "8px",
+                cursor: "pointer",
+              }}
+            >
+              🔄 Refresh
+            </button>
+          </div>
+
+          {loading ? (
+            <p>Memuat data...</p>
+          ) : products.length === 0 ? (
+            <p>Belum ada produk.</p>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                }}
+              >
+                <thead>
+                  <tr style={{ background: "#f3f4f6" }}>
+                    <th style={thStyle}>Produk</th>
+                    <th style={thStyle}>Kategori</th>
+                    <th style={thStyle}>Material</th>
+                    <th style={thStyle}>Satuan</th>
+                    <th style={thStyle}>Harga Jual</th>
+                    <th style={thStyle}>Stok</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {products.map((product) => (
+                    <tr key={product.id}>
+                      <td style={tdStyle}>
+                        <strong>{product.name}</strong>
+                      </td>
+
+                      <td style={tdStyle}>
+                        {product.category || "-"}
+                      </td>
+
+                      <td style={tdStyle}>
+                        {product.material || "-"}
+                      </td>
+
+                      <td style={tdStyle}>
+                        {product.unit || "pcs"}
+                      </td>
+
+                      <td style={tdStyle}>
+                        Rp{" "}
+                        {Number(product.selling_price || 0).toLocaleString(
+                          "id-ID"
+                        )}
+                      </td>
+
+                      <td style={tdStyle}>
+                        <span
+                          style={{
+                            fontWeight: "bold",
+                            color:
+                              Number(product.stock || 0) <=
+                              Number(product.minimum_stock || 0)
+                                ? "#dc2626"
+                                : "#16a34a",
+                          }}
+                        >
+                          {product.stock}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </main>
+  );
 }
+
+const cardStyle = {
+  background: "white",
+  borderRadius: "16px",
+  padding: "22px",
+  display: "flex",
+  alignItems: "center",
+  gap: "16px",
+  boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+};
+
+const iconStyle = {
+  fontSize: "32px",
+};
+
+const labelStyle = {
+  color: "#6b7280",
+  fontSize: "14px",
+};
+
+const numberStyle = {
+  fontSize: "28px",
+  fontWeight: "bold",
+  marginTop: "4px",
+};
+
+const thStyle = {
+  textAlign: "left",
+  padding: "14px",
+  borderBottom: "1px solid #e5e7eb",
+  fontSize: "14px",
+};
+
+const tdStyle = {
+  padding: "14px",
+  borderBottom: "1px solid #f1f1f1",
+  fontSize: "14px",
+};
