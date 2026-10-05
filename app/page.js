@@ -6,9 +6,11 @@ import { supabase } from "../lib/supabase";
 export default function Home() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   async function loadProducts() {
     setLoading(true);
+    setError("");
 
     const { data, error } = await supabase
       .from("products")
@@ -18,7 +20,8 @@ export default function Home() {
 
     if (error) {
       console.error(error);
-      alert("Gagal mengambil data produk: " + error.message);
+      setError(error.message);
+      setProducts([]);
     } else {
       setProducts(data || []);
     }
@@ -33,218 +36,601 @@ export default function Home() {
   const totalProduk = products.length;
 
   const totalStok = products.reduce(
-    (total, product) => total + Number(product.stock || 0),
+    (total, item) => total + Number(item.stock || 0),
     0
   );
 
   const stokMenipis = products.filter(
-    (product) =>
-      Number(product.stock || 0) <= Number(product.minimum_stock || 0)
+    (item) =>
+      Number(item.stock || 0) <= Number(item.minimum_stock || 0)
   ).length;
 
+  const nilaiStok = products.reduce(
+    (total, item) =>
+      total +
+      Number(item.stock || 0) * Number(item.cost_price || 0),
+    0
+  );
+
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#f5f7fb",
-        padding: "30px",
-        fontFamily: "Arial, sans-serif",
-      }}
-    >
-      <div style={{ maxWidth: "1200px", margin: "auto" }}>
+    <main className="page">
+      <div className="container">
+
         {/* HEADER */}
-        <div style={{ marginBottom: "30px" }}>
-          <h1 style={{ margin: 0, fontSize: "32px" }}>
-            📊 Sistem Stok Percetakan
-          </h1>
+        <header className="header">
+          <div>
+            <div className="brand">AMANAH DIGITAL PRINTING</div>
+            <h1>Sistem Manajemen Stok</h1>
+            <p>
+              Kelola produk, persediaan dan transaksi percetakan
+              dari satu tempat.
+            </p>
+          </div>
 
-          <p style={{ color: "#666", marginTop: "8px" }}>
-            Dashboard persediaan banner & percetakan
-          </p>
-        </div>
+          <button className="refreshButton" onClick={loadProducts}>
+            ↻ Refresh
+          </button>
+        </header>
 
-        {/* SUMMARY */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "20px",
-            marginBottom: "30px",
-          }}
-        >
-          <div style={cardStyle}>
-            <div style={iconStyle}>📦</div>
+        {/* MENU */}
+        <nav className="menu">
+          <button className="menuActive">Dashboard</button>
+          <button>Produk</button>
+          <button>Stok Masuk</button>
+          <button>Stok Keluar</button>
+          <button>Penjualan</button>
+          <button>Laporan</button>
+        </nav>
+
+        {/* JUDUL */}
+        <section className="sectionTitle">
+          <div>
+            <h2>Dashboard</h2>
+            <p>Ringkasan kondisi stok saat ini</p>
+          </div>
+        </section>
+
+        {/* CARDS */}
+        <section className="cards">
+
+          <div className="card">
+            <div className="cardIcon blue">📦</div>
             <div>
-              <div style={labelStyle}>Total Produk</div>
-              <div style={numberStyle}>{totalProduk}</div>
+              <span>Total Produk</span>
+              <strong>{totalProduk}</strong>
+              <small>Produk aktif</small>
             </div>
           </div>
 
-          <div style={cardStyle}>
-            <div style={iconStyle}>📊</div>
+          <div className="card">
+            <div className="cardIcon green">📊</div>
             <div>
-              <div style={labelStyle}>Total Stok</div>
-              <div style={numberStyle}>{totalStok}</div>
+              <span>Total Stok</span>
+              <strong>{totalStok}</strong>
+              <small>Seluruh persediaan</small>
             </div>
           </div>
 
-          <div style={cardStyle}>
-            <div style={iconStyle}>⚠️</div>
+          <div className="card">
+            <div className="cardIcon orange">⚠️</div>
             <div>
-              <div style={labelStyle}>Stok Menipis</div>
-              <div style={numberStyle}>{stokMenipis}</div>
+              <span>Stok Menipis</span>
+              <strong>{stokMenipis}</strong>
+              <small>Perlu diperhatikan</small>
             </div>
           </div>
-        </div>
 
-        {/* PRODUK */}
-        <div
-          style={{
-            background: "white",
-            borderRadius: "16px",
-            padding: "24px",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "20px",
-            }}
-          >
+          <div className="card">
+            <div className="cardIcon purple">💰</div>
             <div>
-              <h2 style={{ margin: 0 }}>📦 Master Produk</h2>
-              <p style={{ color: "#777" }}>
-                Data produk yang tersimpan di database
-              </p>
+              <span>Nilai Stok</span>
+              <strong>
+                Rp {nilaiStok.toLocaleString("id-ID")}
+              </strong>
+              <small>Berdasarkan harga modal</small>
             </div>
+          </div>
 
-            <button
-              onClick={loadProducts}
-              style={{
-                border: "none",
-                background: "#111827",
-                color: "white",
-                padding: "10px 16px",
-                borderRadius: "8px",
-                cursor: "pointer",
-              }}
-            >
-              🔄 Refresh
+        </section>
+
+        {/* QUICK ACTION */}
+        <section className="quickSection">
+          <h2>Aksi Cepat</h2>
+
+          <div className="quickGrid">
+            <button className="quickCard">
+              <span>📦</span>
+              <div>
+                <strong>Tambah Produk</strong>
+                <small>Masukkan produk baru</small>
+              </div>
+            </button>
+
+            <button className="quickCard">
+              <span>📥</span>
+              <div>
+                <strong>Stok Masuk</strong>
+                <small>Tambah persediaan</small>
+              </div>
+            </button>
+
+            <button className="quickCard">
+              <span>📤</span>
+              <div>
+                <strong>Stok Keluar</strong>
+                <small>Kurangi persediaan</small>
+              </div>
+            </button>
+
+            <button className="quickCard">
+              <span>🛒</span>
+              <div>
+                <strong>Penjualan</strong>
+                <small>Catat transaksi penjualan</small>
+              </div>
             </button>
           </div>
+        </section>
 
-          {loading ? (
-            <p>Memuat data...</p>
-          ) : products.length === 0 ? (
-            <p>Belum ada produk.</p>
-          ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                }}
-              >
+        {/* PRODUK */}
+        <section className="tableSection">
+
+          <div className="tableHeader">
+            <div>
+              <h2>Master Produk</h2>
+              <p>Produk yang tersimpan di database Supabase</p>
+            </div>
+
+            <span className="productCount">
+              {totalProduk} Produk
+            </span>
+          </div>
+
+          {loading && (
+            <div className="message">
+              ⏳ Mengambil data produk...
+            </div>
+          )}
+
+          {error && (
+            <div className="error">
+              ❌ Gagal mengambil data:
+              <br />
+              {error}
+            </div>
+          )}
+
+          {!loading && !error && products.length === 0 && (
+            <div className="message">
+              Belum ada produk aktif.
+            </div>
+          )}
+
+          {!loading && !error && products.length > 0 && (
+            <div className="tableWrapper">
+              <table>
                 <thead>
-                  <tr style={{ background: "#f3f4f6" }}>
-                    <th style={thStyle}>Produk</th>
-                    <th style={thStyle}>Kategori</th>
-                    <th style={thStyle}>Material</th>
-                    <th style={thStyle}>Satuan</th>
-                    <th style={thStyle}>Harga Jual</th>
-                    <th style={thStyle}>Stok</th>
+                  <tr>
+                    <th>Produk</th>
+                    <th>Kategori</th>
+                    <th>Material</th>
+                    <th>Satuan</th>
+                    <th>Harga Jual</th>
+                    <th>Stok</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {products.map((product) => (
-                    <tr key={product.id}>
-                      <td style={tdStyle}>
-                        <strong>{product.name}</strong>
-                      </td>
+                  {products.map((product) => {
 
-                      <td style={tdStyle}>
-                        {product.category || "-"}
-                      </td>
+                    const stock = Number(product.stock || 0);
+                    const minimum = Number(
+                      product.minimum_stock || 0
+                    );
 
-                      <td style={tdStyle}>
-                        {product.material || "-"}
-                      </td>
+                    const lowStock = stock <= minimum;
 
-                      <td style={tdStyle}>
-                        {product.unit || "pcs"}
-                      </td>
+                    return (
+                      <tr key={product.id}>
 
-                      <td style={tdStyle}>
-                        Rp{" "}
-                        {Number(product.selling_price || 0).toLocaleString(
-                          "id-ID"
-                        )}
-                      </td>
+                        <td>
+                          <strong>{product.name}</strong>
+                        </td>
 
-                      <td style={tdStyle}>
-                        <span
-                          style={{
-                            fontWeight: "bold",
-                            color:
-                              Number(product.stock || 0) <=
-                              Number(product.minimum_stock || 0)
-                                ? "#dc2626"
-                                : "#16a34a",
-                          }}
-                        >
-                          {product.stock}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                        <td>
+                          {product.category || "-"}
+                        </td>
+
+                        <td>
+                          {product.material || "-"}
+                        </td>
+
+                        <td>
+                          {product.unit || "pcs"}
+                        </td>
+
+                        <td>
+                          Rp{" "}
+                          {Number(
+                            product.selling_price || 0
+                          ).toLocaleString("id-ID")}
+                        </td>
+
+                        <td>
+                          <strong
+                            className={
+                              lowStock
+                                ? "stockLow"
+                                : "stockGood"
+                            }
+                          >
+                            {stock}
+                          </strong>
+                        </td>
+
+                        <td>
+                          <span
+                            className={
+                              lowStock
+                                ? "badge danger"
+                                : "badge success"
+                            }
+                          >
+                            {lowStock
+                              ? "Stok Menipis"
+                              : "Stok Aman"}
+                          </span>
+                        </td>
+
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
-        </div>
+
+        </section>
+
+        {/* FOOTER */}
+        <footer>
+          Sistem Stok Percetakan • Terhubung dengan Supabase
+        </footer>
+
       </div>
+
+      <style jsx>{`
+
+        * {
+          box-sizing: border-box;
+        }
+
+        .page {
+          min-height: 100vh;
+          background: #f4f6f9;
+          color: #172033;
+          font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .container {
+          width: 100%;
+          max-width: 1400px;
+          margin: auto;
+          padding: 30px;
+        }
+
+        .header {
+          background: #111827;
+          color: white;
+          padding: 30px;
+          border-radius: 18px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 20px;
+        }
+
+        .brand {
+          font-size: 13px;
+          font-weight: bold;
+          letter-spacing: 2px;
+          opacity: .75;
+          margin-bottom: 8px;
+        }
+
+        .header h1 {
+          margin: 0;
+          font-size: 30px;
+        }
+
+        .header p {
+          margin: 8px 0 0;
+          color: #cbd5e1;
+        }
+
+        .refreshButton {
+          border: 0;
+          background: white;
+          color: #111827;
+          padding: 12px 18px;
+          border-radius: 10px;
+          font-weight: bold;
+          cursor: pointer;
+        }
+
+        .menu {
+          margin: 20px 0;
+          background: white;
+          border-radius: 14px;
+          padding: 8px;
+          display: flex;
+          gap: 6px;
+          overflow-x: auto;
+          box-shadow: 0 3px 15px rgba(0,0,0,.05);
+        }
+
+        .menu button {
+          border: 0;
+          background: transparent;
+          padding: 12px 18px;
+          border-radius: 9px;
+          cursor: pointer;
+          white-space: nowrap;
+          font-weight: 600;
+          color: #64748b;
+        }
+
+        .menu .menuActive {
+          background: #111827;
+          color: white;
+        }
+
+        .sectionTitle {
+          margin: 28px 0 18px;
+        }
+
+        .sectionTitle h2,
+        .quickSection h2,
+        .tableHeader h2 {
+          margin: 0;
+          font-size: 22px;
+        }
+
+        .sectionTitle p,
+        .tableHeader p {
+          color: #64748b;
+          margin: 6px 0 0;
+        }
+
+        .cards {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 18px;
+        }
+
+        .card {
+          background: white;
+          padding: 22px;
+          border-radius: 16px;
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          box-shadow: 0 3px 15px rgba(0,0,0,.05);
+        }
+
+        .cardIcon {
+          width: 54px;
+          height: 54px;
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 25px;
+        }
+
+        .blue {
+          background: #dbeafe;
+        }
+
+        .green {
+          background: #dcfce7;
+        }
+
+        .orange {
+          background: #ffedd5;
+        }
+
+        .purple {
+          background: #ede9fe;
+        }
+
+        .card span {
+          display: block;
+          color: #64748b;
+          font-size: 13px;
+          margin-bottom: 5px;
+        }
+
+        .card strong {
+          display: block;
+          font-size: 23px;
+        }
+
+        .card small {
+          display: block;
+          color: #94a3b8;
+          margin-top: 5px;
+        }
+
+        .quickSection {
+          margin-top: 30px;
+        }
+
+        .quickGrid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 15px;
+          margin-top: 15px;
+        }
+
+        .quickCard {
+          border: 0;
+          background: white;
+          padding: 20px;
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          text-align: left;
+          cursor: pointer;
+          box-shadow: 0 3px 15px rgba(0,0,0,.05);
+        }
+
+        .quickCard > span {
+          font-size: 28px;
+        }
+
+        .quickCard strong {
+          display: block;
+        }
+
+        .quickCard small {
+          display: block;
+          color: #64748b;
+          margin-top: 5px;
+        }
+
+        .tableSection {
+          background: white;
+          margin-top: 30px;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 3px 15px rgba(0,0,0,.05);
+        }
+
+        .tableHeader {
+          padding: 22px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .productCount {
+          background: #f1f5f9;
+          padding: 8px 13px;
+          border-radius: 20px;
+          font-size: 13px;
+          font-weight: bold;
+        }
+
+        .tableWrapper {
+          overflow-x: auto;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        th {
+          background: #f8fafc;
+          color: #64748b;
+          text-align: left;
+          font-size: 13px;
+          padding: 15px 20px;
+          white-space: nowrap;
+        }
+
+        td {
+          padding: 16px 20px;
+          border-top: 1px solid #eef2f7;
+          white-space: nowrap;
+        }
+
+        .stockGood {
+          color: #16a34a;
+        }
+
+        .stockLow {
+          color: #dc2626;
+        }
+
+        .badge {
+          display: inline-block;
+          padding: 6px 10px;
+          border-radius: 20px;
+          font-size: 12px;
+          font-weight: bold;
+        }
+
+        .success {
+          background: #dcfce7;
+          color: #15803d;
+        }
+
+        .danger {
+          background: #fee2e2;
+          color: #b91c1c;
+        }
+
+        .message {
+          padding: 30px;
+          color: #64748b;
+          text-align: center;
+        }
+
+        .error {
+          margin: 20px;
+          padding: 16px;
+          background: #fee2e2;
+          color: #991b1b;
+          border-radius: 10px;
+        }
+
+        footer {
+          text-align: center;
+          color: #94a3b8;
+          padding: 30px 0 10px;
+          font-size: 13px;
+        }
+
+        @media (max-width: 1000px) {
+
+          .cards {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+          .quickGrid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+        }
+
+        @media (max-width: 650px) {
+
+          .container {
+            padding: 15px;
+          }
+
+          .header {
+            padding: 22px;
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .header h1 {
+            font-size: 24px;
+          }
+
+          .cards,
+          .quickGrid {
+            grid-template-columns: 1fr;
+          }
+
+        }
+
+      `}</style>
     </main>
   );
 }
-
-const cardStyle = {
-  background: "white",
-  borderRadius: "16px",
-  padding: "22px",
-  display: "flex",
-  alignItems: "center",
-  gap: "16px",
-  boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
-};
-
-const iconStyle = {
-  fontSize: "32px",
-};
-
-const labelStyle = {
-  color: "#6b7280",
-  fontSize: "14px",
-};
-
-const numberStyle = {
-  fontSize: "28px",
-  fontWeight: "bold",
-  marginTop: "4px",
-};
-
-const thStyle = {
-  textAlign: "left",
-  padding: "14px",
-  borderBottom: "1px solid #e5e7eb",
-  fontSize: "14px",
-};
-
-const tdStyle = {
-  padding: "14px",
-  borderBottom: "1px solid #f1f1f1",
-  fontSize: "14px",
-};
